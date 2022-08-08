@@ -18,7 +18,7 @@ library(QDECR)
 
 print('running qdecr...')
 
-out <- qdecr_fastlm(qdecr_thickness ~ crp_log10 + AgeChildBrainMRIF9 + GENDER + gestage_plasma_g1 + ETHNMv2 + EDUCM5 + AGE_M_v2 + mdrink_updated + SMOKE_ALL,
+out <- qdecr_fastlm(qdecr_thickness ~ crp_log10 + AgeChildBrainMRIF9 + GENDER,
   data = compdata,
   id = "folders_f09",
   hemi = "rh",
