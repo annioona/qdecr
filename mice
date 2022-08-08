@@ -1,0 +1,119 @@
+############################
+#### PREPROCESSING DATA ####
+############################
+
+### Based on https://github.com/LorenzaDA/ADHD_brainmorphology_confounding/blob/main/1B.GENR_preprocessing.R
+
+# DOWNLOAD PACKAGES AND DATA
+
+library(foreign); library(magrittr); library(mice); library(data.table)
+data     <- readRDS("path/to/home/directory/folder/data.Rda")
+id_data  <- readRDS("path/to/directory/folder/id_data.Rda")
+id_data2 <- subset(id_data, select=c("idc", "mri_consent_f09", "folders_f09"))
+data2    <- merge(x=data, y=id_data2, by.x="IDC",by.y="idc",  all.x=TRUE)
+
+data3    <-  data2 %>% 
+             subset(mri_consent_f09 == "yes") %>% 
+             subset(t1_asset_nii == "NO") %>% 
+             subset(usable_fs_f9_final == "useable") %>% 
+             subset(braces_mri_f9 == "does not have braces") %>% 
+             subset(exclude_incidental == "include") %>% 
+             subset(twin == "No") %>%
+             subset(!duplicated(mother)) %>%
+             subset(!is.na(CRP_g1)) 
+             
+head(data2[,c(1,5)], 20)
+
+# CLASS, LEVELS, SET OUTCOME VARIABLE
+
+class(data)             <- "data.frame"
+data3$ETHNMv2           <- fct_collapse(data3$ETHNMv2, "Western" = c("Dutch", "Western"))
+data3$meanCortexVol_f09 <- rowMeans(data3[,c('lhCortexVol_f9', 'rhCortexVol_f9')], na.rm=TRUE)
+data3$crp_log10=log10(data3$CRP_g1)
+
+# SAVE
+
+saveRDS(data3, "path/to/home/directory/folder/data3.Rda")
+             
+
+################################
+#### DESCRIPTIVE STATISTICS ####
+################################
+
+missings_n <- apply(data, 2, function(col) {sum(is.na(col))})
+write.csv(missings_n, "path/missing_n.csv")
+
+missings_percent <- apply(data, 2, function(col) {((sum(is.na(col)))/length(col)*100)})
+write.csv(missings_percent, "path/missing_percent.csv")
+
+summarystats <- summary(data) 
+write.csv(summarystats, "path/symmarystats.csv")
+
+
+############################
+#### IMPUTING WITH MICE ####
+############################
+
+# LOAD PACKAGES AND DATA
+
+library(mice); library(magrittr); library(foreign); library(data.table)
+data       <- readRDS("/home/msno/data3.Rda")
+
+# SET PREDICTORS FOR IMPUTATION AND FACTORS TO BE IMPUTED
+# PREDICTORS SHOULD INCLUDE EVERY VARIABLE USED IN ANALYSIS MODELS LATER
+
+predictors_for_imputation <- c("crp_log10", "gestage_plasma_g1", "BMI_0", "GENDER", "EDUCM5", "ETHNMv2",
+                               "AGE_M_v2", "SMOKE_ALL", "INCOME5", "WEIGHT", "m_drugs", "gestage_plasma_g1",
+                               "IDC", "mdrink_updated", "AgeChildBrainMRIF9", "meanCortexVol_f09")
+impvars    <- c(predictors_for_imputation)
+
+# DRY RUN MICE TO GET PREDICTOR MATRIX AND METHODS
+
+dryrun     <- mice(data, maxit = 0, printF = FALSE)
+pred       <- dryrun$pred
+pred[]     <- 0
+pred[rownames(pred) %in% impvars, colnames(pred) %in% impvars] <- 1
+diag(pred) <- 0
+meth       <- dryrun$meth
+meth[!names(meth) %in% impvars] <- ""
+
+# SET THE ORDER OF THE VARIABLES, THIS MATTERS IN MICE
+
+visit      <- dryrun$visit
+visit      <- visit[visit %in% impvars]
+visit2     <- c("BMI_0",  "SMOKE_ALL", "crp_log10", "m_drugs", "mdrink_updated", "AGE_M_v2", "ETHNMv2",
+                "EDUCM5", "INCOME5", "GENDER",  "gestage_plasma_g1", "WEIGHT",  "AgeChildBrainMRIF9", 
+                "IDC", "meanCortexVol_f09")
+
+imp        <- mice(data,
+                   m = 50,
+                   maxit = 100,
+                   seed = 2022,
+                   pred = pred,
+                   meth = meth,
+                   visit = visit2)
+            
+saveRDS(imp, "/home/msno/imputed_data.rds")
+
+
+############################
+#### JOB SCRIPT EXAMPLE ####
+############################
+
+#!/bin/bash
+#SBATCH -t 20:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=16G
+
+echo `date`
+echo "setting up environment..."
+
+module load R/3.6.3
+
+echo "running script"
+echo `date`
+Rscript /location/of/the/script.R
+
+echo "finished"
+echo `date`
