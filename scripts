@@ -1,0 +1,56 @@
+################
+### R-SCRIPT ###
+################
+
+####TO DO in BASH BEFORE
+####module load freesurfer
+####module load R/3.6.3
+####export SUBJECTS_DIR=/xxxxx/bids/derivatives/freesurfer/6.0.0/
+
+
+print('reading in R dataset')
+
+compdata = readRDS("/home/msno/compdata.rds")
+
+print('loading R libraries')
+library(mice)
+library(QDECR)
+
+print('running qdecr...')
+
+out <- qdecr_fastlm(qdecr_thickness ~ crp_log10 + AgeChildBrainMRIF9 + GENDER + gestage_plasma_g1 + ETHNMv2 + EDUCM5 + AGE_M_v2 + mdrink_updated + SMOKE_ALL,
+  data = compdata,
+  id = "folders_f09",
+  hemi = "rh",
+  project = "minimal",
+  clobber = TRUE,
+  n_cores = 2,
+  dir_tmp = "/dev/shm")
+
+print('finished')
+
+##################
+### JOB SCRIPT ###
+##################
+
+#!/bin/bash
+#SBATCH -t 24:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=16G
+
+
+echo `date`
+echo "setting up environment..."
+
+module load freesurfer
+module load R
+export SUBJECTS_DIR=/xxxx/bids/derivatives/freesurfer/6.0.0/
+
+echo "running script"
+echo `date`
+Rscript /home/msno/minimal.R
+
+echo "finished"
+        echo `date`
+        
