@@ -5,12 +5,12 @@
 ####TO DO in BASH BEFORE
 ####module load freesurfer
 ####module load R/3.6.3
-####export SUBJECTS_DIR=/xxxxx/bids/derivatives/freesurfer/6.0.0/
+####export SUBJECTS_DIR=/xxx/freesurfer/6.0.0/
 
 
 print('reading in R dataset')
 
-compdata = readRDS("/home/msno/compdata.rds")
+compdata = readRDS("/home/xxx/compdata.rds")
 
 print('loading R libraries')
 library(mice)
@@ -18,11 +18,11 @@ library(QDECR)
 
 print('running qdecr...')
 
-out <- qdecr_fastlm(qdecr_thickness ~ crp_log10 + AgeChildBrainMRIF9 + GENDER,
+out <- qdecr_fastlm(qdecr_thickness ~ crp + age + bmi + smoking + alcohol + gestationalweek + maternal age + education,
   data = compdata,
-  id = "folders_f09",
+  id = "MRI_data",
   hemi = "rh",
-  project = "minimal",
+  project = "adjusted",
   clobber = TRUE,
   n_cores = 2,
   dir_tmp = "/dev/shm")
@@ -45,11 +45,11 @@ echo "setting up environment..."
 
 module load freesurfer
 module load R
-export SUBJECTS_DIR=/xxxx/bids/derivatives/freesurfer/6.0.0/
+export SUBJECTS_DIR=/xxx/freesurfer/6.0.0/
 
 echo "running script"
 echo `date`
-Rscript /home/msno/minimal.R
+Rscript /home/xxx/adjusted.R
 
 echo "finished"
         echo `date`
